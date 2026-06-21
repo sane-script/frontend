@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: #EDEEF5;
+  color: #18181b;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: #9fff00; color: #000; }
+input, button, textarea { font-family: inherit; }
+input:focus, textarea:focus { outline: none; }
+
+@keyframes cdRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cdFloat1 {
+  0%   { transform: translate(0,0) scale(1); }
+  50%  { transform: translate(8%,-6%) scale(1.18); }
+  100% { transform: translate(0,0) scale(1); }
+}
+@keyframes cdFloat2 {
+  0%   { transform: translate(0,0) scale(1.1); }
+  50%  { transform: translate(-7%,5%) scale(1); }
+  100% { transform: translate(0,0) scale(1.1); }
+}
+@keyframes cdFloat3 {
+  0%   { transform: translate(0,0) scale(1); }
+  50%  { transform: translate(5%,7%) scale(1.22); }
+  100% { transform: translate(0,0) scale(1); }
+}
+@keyframes cdFloat4 {
+  0%   { transform: translate(0,0) scale(1.05); }
+  50%  { transform: translate(-6%,-5%) scale(0.9); }
+  100% { transform: translate(0,0) scale(1.05); }
+}
+
+.cd-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.cd-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 8px; }
