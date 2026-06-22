@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PlatformIcon } from '@/components/icons/PlatformIcon';
 import { ALL_PLATFORMS } from '@/types';
+import { Reveal } from '@/components/landing/Reveal';
 
 export function Features() {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -14,20 +15,22 @@ export function Features() {
   return (
     <section id="features" style={{ background: '#fff', padding: '96px 28px', borderRadius: '40px 40px 0 0' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-        <h2 style={{
-          fontFamily: "'Outfit', sans-serif",
-          fontWeight: 600,
-          fontSize: 'clamp(30px, 4vw, 52px)',
-          letterSpacing: '-.02em',
-          margin: '0 0 8px',
-          color: '#1a1a1a',
-        }}>
-          Everything in <span style={{ color: '#8e8e8e' }}>one flow.</span>
-        </h2>
-        <p style={{ color: '#71717a', fontSize: 16, margin: '0 0 48px', maxWidth: 520 }}>
-          Five networks behind one adapter, a calendar you can drag, and analytics that match your exports to the number.
-        </p>
-        <div className="cd-grid2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <Reveal>
+          <h2 style={{
+            fontFamily: "'Outfit', sans-serif",
+            fontWeight: 600,
+            fontSize: 'clamp(30px, 4vw, 52px)',
+            letterSpacing: '-.02em',
+            margin: '0 0 8px',
+            color: '#1a1a1a',
+          }}>
+            Everything in <span style={{ color: '#8e8e8e' }}>one flow.</span>
+          </h2>
+          <p style={{ color: '#71717a', fontSize: 16, margin: '0 0 48px', maxWidth: 520 }}>
+            Five networks behind one adapter, a calendar you can drag, and analytics that match your exports to the number.
+          </p>
+        </Reveal>
+        <Reveal delay={80} className="cd-grid2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           {/* Card 1 - Five networks */}
           <div
             style={{ ...cardBase, borderColor: hoverIdx === 0 ? '#9fff00' : 'rgba(0,0,0,.07)' }}
@@ -90,7 +93,7 @@ export function Features() {
               CSV/PDF reports that mirror the on-screen numbers exactly — no reconciliation, ever.
             </p>
           </div>
-        </div>
+        </Reveal>
       </div>
 
       <style>{`

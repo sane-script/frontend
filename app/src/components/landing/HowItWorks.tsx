@@ -1,20 +1,24 @@
+import { Reveal } from '@/components/landing/Reveal';
+
 export function HowItWorks() {
   return (
     <section id="how" style={{ background: '#EDEEF5', padding: '96px 28px' }}>
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-        <h2 style={{
-          fontFamily: "'Outfit', sans-serif",
-          fontWeight: 600,
-          fontSize: 'clamp(30px, 4vw, 52px)',
-          letterSpacing: '-.02em',
-          margin: '0 0 8px',
-          color: '#1a1a1a',
-        }}>
-          Four steps. <span style={{ color: '#8e8e8e' }}>One workflow.</span>
-        </h2>
-        <p style={{ color: '#71717a', fontSize: 16, margin: '0 0 48px', maxWidth: 520 }}>
-          Connect once, create in one place, choose how it publishes, then watch it perform — without bouncing between apps.
-        </p>
+        <Reveal>
+          <h2 style={{
+            fontFamily: "'Outfit', sans-serif",
+            fontWeight: 600,
+            fontSize: 'clamp(30px, 4vw, 52px)',
+            letterSpacing: '-.02em',
+            margin: '0 0 8px',
+            color: '#1a1a1a',
+          }}>
+            Four steps. <span style={{ color: '#8e8e8e' }}>One workflow.</span>
+          </h2>
+          <p style={{ color: '#71717a', fontSize: 16, margin: '0 0 48px', maxWidth: 520 }}>
+            Connect once, create in one place, choose how it publishes, then watch it perform — without bouncing between apps.
+          </p>
+        </Reveal>
         <div className="cd-grid4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
 
           <StepCard n={1} title="Connect" icon={
@@ -77,7 +81,7 @@ function StepCard({ n, title, icon, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div style={{
+    <Reveal delay={(n - 1) * 90} style={{
       background: '#fff',
       border: '1px solid rgba(0,0,0,.06)',
       borderRadius: 18,
@@ -99,6 +103,6 @@ function StepCard({ n, title, icon, children }: {
       <p style={{ color: '#52525b', fontSize: '14px', lineHeight: 1.6, margin: 0 }}>
         {children}
       </p>
-    </div>
+    </Reveal>
   );
 }
