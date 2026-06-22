@@ -111,6 +111,7 @@ export default function App() {
               onSetOpenChip={app.setOpenChip}
               onCloseChip={app.closeChip}
               onRetry={app.retry}
+              onGoCreate={() => app.setTab('create')}
             />
           )}
 

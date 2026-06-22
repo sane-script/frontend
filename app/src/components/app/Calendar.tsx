@@ -22,11 +22,12 @@ interface CalendarProps {
   onSetOpenChip: (id: number | null) => void;
   onCloseChip: () => void;
   onRetry: () => void;
+  onGoCreate: () => void;
 }
 
 export function Calendar({
   weekOffset, scheduled, content, accounts, openChip, dragRef, loading, error,
-  onPrevWeek, onNextWeek, onDropOnCell, onPublishNow, onCancelSched, onSetOpenChip, onCloseChip, onRetry,
+  onPrevWeek, onNextWeek, onDropOnCell, onPublishNow, onCancelSched, onSetOpenChip, onCloseChip, onRetry, onGoCreate,
 }: CalendarProps) {
   const mon = mondayOf(addDays(new Date(), weekOffset * 7));
   const today = new Date();
@@ -152,8 +153,18 @@ export function Calendar({
           </div>
 
           {!loading && !hasChips && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', color: '#c4c4cc', fontSize: 14, fontWeight: 500 }}>
-              Nothing scheduled this week
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 24 }}>
+              <div style={{ color: '#c4c4cc', fontSize: 14, fontWeight: 500 }}>Nothing scheduled this week</div>
+              <div style={{ fontSize: 12.5, color: '#a1a1aa', textAlign: 'center' }}>
+                Go to{' '}
+                <button
+                  onClick={e => { e.stopPropagation(); onGoCreate(); }}
+                  style={{ border: 'none', background: 'transparent', color: '#1a1a1a', fontWeight: 600, cursor: 'pointer', fontSize: 12.5, padding: 0, textDecoration: 'underline' }}
+                >
+                  Create
+                </button>
+                {' '}and choose <strong>Schedule</strong> to add posts here.
+              </div>
             </div>
           )}
         </div>
