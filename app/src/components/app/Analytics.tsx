@@ -1,6 +1,6 @@
 import { type AppState, type MetricKey, PLATFORMS } from '@/types';
 import { PlatformIcon } from '@/components/icons/PlatformIcon';
-import { LoadingPanel, ErrorBanner, EmptyState } from '@/components/app/States';
+import { LoadingPanel, ErrorBanner, EmptyState, CountUp } from '@/components/app/States';
 import { sparkPath, chartLinePath, chartAreaPath, fmtNum } from '@/lib/chartUtils';
 import { md } from '@/lib/dateUtils';
 
@@ -49,7 +49,7 @@ export function Analytics({ metrics, metricKey, loading, error, onSetMetricKey, 
     const up = pct >= 0;
     const total = metrics.overview[k];
     return {
-      key: k, label,
+      key: k, label, total,
       value: k === 'followers' ? '+' + fmtNum(total) : fmtNum(total),
       delta: (up ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(1) + '%',
       deltaColor: up ? '#65a30d' : '#a1a1aa',
@@ -91,7 +91,9 @@ export function Analytics({ metrics, metricKey, loading, error, onSetMetricKey, 
               <div key={k.key} onClick={() => onSetMetricKey(k.key)} style={{ background: '#fff', border: `1px solid ${k.active ? 'rgba(0,0,0,.16)' : 'rgba(0,0,0,.06)'}`, borderRadius: 16, padding: 18, cursor: 'pointer' }}>
                 <div style={{ fontSize: 13, color: '#71717a', marginBottom: 8 }}>{k.label}</div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-                  <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 28, letterSpacing: '-.02em', color: '#18181b' }}>{k.value}</div>
+                  <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 28, letterSpacing: '-.02em', color: '#18181b' }}>
+                    <CountUp value={k.total} format={(n) => (k.key === 'followers' ? '+' + fmtNum(n) : fmtNum(n))} />
+                  </div>
                   <svg width="116" height="34" viewBox="0 0 116 34" preserveAspectRatio="none" style={{ flex: 'none' }}>
                     <path d={k.spark} fill="none" stroke="#9fff00" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
