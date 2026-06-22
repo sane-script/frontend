@@ -91,7 +91,6 @@ export interface AppState {
   metricKey: MetricKey;
   weekOffset: number;
   openChip: number | null;
-  connectingId: number | null;
   loading: boolean;
   error: string | null;
   metrics: {
