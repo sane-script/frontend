@@ -31,34 +31,32 @@ export default function App() {
     return <AuthGate onAuth={authenticate} />;
   }
 
+  // The guide is rendered as a STABLE trailing sibling of the view content
+  // below, so toggling landing ↔ app never unmounts it (which would reset its
+  // step and make it repeat itself).
   const guide = (
     <SaneGuide
-      onGoApp={() => app.setView('app')}
       onGoLanding={() => app.setView('landing')}
       onSetTab={(t) => { app.setView('app'); app.setTab(t); }}
     />
   );
-
-  if (state.view === 'landing') {
-    return (
-      <div style={{ position: 'relative', width: '100%', overflowX: 'hidden' }}>
-        <Navbar onGoApp={() => app.setView('app')} />
-        <Hero heroQuery={state.heroQuery} onHeroInput={app.setHeroQuery} onGoApp={app.goAppFromHero} />
-        <HowItWorks />
-        <Features />
-        <FooterCTA onGoApp={() => app.setView('app')} />
-        {state.toast && <Toast message={state.toast} />}
-        {guide}
-      </div>
-    );
-  }
 
   const exportWith = async (fn: () => Promise<void>, label: string) => {
     try { await fn(); app.flash(`${label} downloaded.`); }
     catch (e) { app.flash('Error: ' + (e instanceof Error ? e.message : String(e)).slice(0, 80)); }
   };
 
-  return (
+  const landingView = (
+    <div style={{ position: 'relative', width: '100%', overflowX: 'hidden' }}>
+      <Navbar onGoApp={() => app.setView('app')} />
+      <Hero heroQuery={state.heroQuery} onHeroInput={app.setHeroQuery} onGoApp={app.goAppFromHero} />
+      <HowItWorks />
+      <Features />
+      <FooterCTA onGoApp={() => app.setView('app')} />
+    </div>
+  );
+
+  const appView = (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EDEEF5' }}>
       <Sidebar tab={state.tab} onSetTab={app.setTab} onGoSite={() => app.setView('landing')} />
       <main className="cd-scroll cd-main" style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto' }}>
@@ -165,8 +163,14 @@ export default function App() {
 
         </div>
       </main>
+    </div>
+  );
+
+  return (
+    <>
+      {state.view === 'landing' ? landingView : appView}
       {state.toast && <Toast message={state.toast} />}
       {guide}
-    </div>
+    </>
   );
 }

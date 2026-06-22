@@ -1,60 +1,62 @@
 // Scripted onboarding beats for the "Sane" guide bot. Pure data — no AI, no
-// backend. SaneGuide.tsx renders these with a typewriter effect and a spotlight
-// on the element named by `target` (a [data-guide="..."] value).
+// backend. SaneGuide.tsx renders these with a typewriter effect, auto-navigates
+// to each step's `location`, and spotlights the element named by `target`.
 
-export type GuideGo = 'app' | 'accounts' | 'create' | 'landing' | 'minimize';
+export type GuideLocation = 'landing' | 'accounts' | 'create';
 
 export interface GuideStep {
   id: string;
   text: string;
+  /** Where the user should be for this step — the guide navigates here. */
+  location: GuideLocation;
   /** [data-guide] attribute value to spotlight, if any. */
   target?: string;
-  /** Button label. Defaults to "Next". */
+  /** Forward-button label. Defaults to "Next". */
   cta?: string;
-  /** Navigation/side-effect to run when the CTA is pressed. */
-  go?: GuideGo;
-  /** Only show this step when in this view. */
-  requireView?: 'landing' | 'app';
 }
 
+// A single coherent narrative: open the app → connect → create → choose → done.
+// Each beat moves the story forward; none repeat the previous one.
 export const GUIDE_STEPS: GuideStep[] = [
   {
-    id: 'intro',
-    text: "First time? Follow me. Hi, I'm Sane 👋 Let's get you posting. Click below and I'll walk you through it.",
+    id: 'open',
+    location: 'landing',
     target: 'get-started',
-    cta: "Let's go →",
-    go: 'app',
+    text: "Hey — I'm Sane 👋 I'll take you from zero to your first live post in about a minute. First, let's step inside the workspace.",
+    cta: 'Open the app →',
   },
   {
-    id: 'cms',
-    text: "This is the workspace you'll live in. First, let's connect an account so your posts have somewhere to go.",
+    id: 'accounts',
+    location: 'accounts',
     target: 'tab-accounts',
-    cta: 'Open Accounts',
-    go: 'accounts',
+    text: "This is your workspace. Nothing can go out until a network is connected, so we start here — I've opened the Accounts tab for you.",
+    cta: 'Makes sense →',
   },
   {
-    id: 'connect',
-    text: "Facebook, Instagram and the rest need OAuth, which we wire up in production. Don't get bogged down — use Bluesky, it's fully live. Hit Connect on the Bluesky card, then 'Use the sample demo account'.",
+    id: 'bluesky',
+    location: 'accounts',
     target: 'tab-accounts',
-    cta: 'Done — next',
+    text: "Facebook, Instagram, X and TikTok need each platform's OAuth review — a production step. For a real LIVE test right now, use Bluesky: hit Connect on its card, then “Use the sample demo account.”",
+    cta: "Connected — next →",
   },
   {
     id: 'create',
-    text: "Nice! Now let's make a post. Head to Create.",
+    location: 'create',
     target: 'tab-create',
-    cta: 'Open Create',
-    go: 'create',
+    text: "Now the fun part: making a post. This is the Create tab — where writing and publishing happen in one place.",
+    cta: 'Show me how →',
   },
   {
     id: 'decide',
-    text: "Write your title, body and hashtags, pick your networks, then choose one: Post now, Schedule, or Save as draft. That's the whole flow.",
+    location: 'create',
     target: 'decision-bar',
-    cta: 'Got it',
+    text: "Write a title and body, add hashtags, then pick your networks on the right. When you're ready, choose one: Post now, Schedule, or Save as draft.",
+    cta: 'Got it →',
   },
   {
     id: 'done',
-    text: "That's it — have fun and experiment. Tweak anything you like; I'll be hanging out down here if you need me.",
+    location: 'create',
+    text: "That's the whole loop — Connect, Create, Choose, then watch it perform in Analytics. Have a play; I'll be down in the corner whenever you need me.",
     cta: 'Finish',
-    go: 'minimize',
   },
 ];
