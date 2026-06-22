@@ -9,11 +9,13 @@ import { Features } from '@/components/landing/Features';
 import { FooterCTA } from '@/components/landing/FooterCTA';
 import { Sidebar } from '@/components/app/Sidebar';
 import { Create } from '@/components/app/Create';
+import { Drafts } from '@/components/app/Drafts';
 import { Accounts } from '@/components/app/Accounts';
 import { Approvals } from '@/components/app/Approvals';
 import { Calendar } from '@/components/app/Calendar';
 import { Analytics } from '@/components/app/Analytics';
 import { Toast } from '@/components/app/Toast';
+import { SaneGuide } from '@/components/guide/SaneGuide';
 
 export default function App() {
   const { isAuthed, authenticate } = useAuth();
@@ -24,6 +26,14 @@ export default function App() {
     return <AuthGate onAuth={authenticate} />;
   }
 
+  const guide = (
+    <SaneGuide
+      onGoApp={() => app.setView('app')}
+      onGoLanding={() => app.setView('landing')}
+      onSetTab={(t) => { app.setView('app'); app.setTab(t); }}
+    />
+  );
+
   if (state.view === 'landing') {
     return (
       <div style={{ position: 'relative', width: '100%', overflowX: 'hidden' }}>
@@ -33,6 +43,7 @@ export default function App() {
         <Features />
         <FooterCTA onGoApp={() => app.setView('app')} />
         {state.toast && <Toast message={state.toast} />}
+        {guide}
       </div>
     );
   }
@@ -45,18 +56,20 @@ export default function App() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EDEEF5' }}>
       <Sidebar tab={state.tab} onSetTab={app.setTab} onGoSite={() => app.setView('landing')} />
-      <main className="cd-scroll" style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px 34px 80px' }}>
+      <main className="cd-scroll cd-main" style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px 34px 96px' }}>
 
           {state.tab === 'create' && (
             <Create
               accounts={state.accounts}
               content={state.content}
               prefill={state.createPrefill}
+              editDraft={state.editDraft}
               loading={state.loading}
               error={state.error}
               onRetry={app.retry}
               onSaved={app.onContentSaved}
+              onClearEdit={app.clearEditDraft}
               flash={app.flash}
               onGoAccounts={() => app.setTab('accounts')}
               onGoCalendar={() => app.setTab('calendar')}
@@ -64,14 +77,31 @@ export default function App() {
             />
           )}
 
+          {state.tab === 'drafts' && (
+            <Drafts
+              content={state.content}
+              accounts={state.accounts}
+              loading={state.loading}
+              error={state.error}
+              onRetry={app.retry}
+              onEdit={app.editContent}
+              onDelete={app.deleteContent}
+              onDuplicate={app.duplicateContent}
+              onApprove={app.approve}
+              onSchedule={app.scheduleContent}
+              onPublishNow={app.publishContentNow}
+              onGoCreate={() => app.setTab('create')}
+            />
+          )}
+
           {state.tab === 'accounts' && (
             <Accounts
               accounts={state.accounts}
-              connectingId={state.connectingId}
               loading={state.loading}
               error={state.error}
               onConnect={app.connectAccount}
               onDisconnect={app.disconnectAccount}
+              onRemove={app.removeAccount}
               onRetry={app.retry}
             />
           )}
@@ -131,6 +161,7 @@ export default function App() {
         </div>
       </main>
       {state.toast && <Toast message={state.toast} />}
+      {guide}
     </div>
   );
 }
