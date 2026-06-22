@@ -1,4 +1,7 @@
 import { useAppState } from '@/hooks/useAppState';
+import { useAuth } from '@/auth/useAuth';
+import { AuthGate } from '@/auth/AuthGate';
+import { exportCsv, exportPdf } from '@/api/client';
 import { Navbar } from '@/components/landing/Navbar';
 import { Hero } from '@/components/landing/Hero';
 import { HowItWorks } from '@/components/landing/HowItWorks';
@@ -13,51 +16,47 @@ import { Composer } from '@/components/app/Composer';
 import { Toast } from '@/components/app/Toast';
 
 export default function App() {
-  const {
-    state,
-    dragRef,
-    setView,
-    setTab,
-    setHeroQuery,
-    setPreviewPlatform,
-    setSelectedContentId,
-    setMetricKey,
-    setWeekOffset,
-    setOpenChip,
-    openComposer,
-    closeComposer,
-    setComposerField,
-    flash,
-    approve,
-    reject,
-    toggleAccount,
-    publishNow,
-    cancelSched,
-    dropOnCell,
-    saveComposer,
-    closeChip,
-  } = useAppState();
+  const { isAuthed, authenticate } = useAuth();
+  const app = useAppState();
+  const { state } = app;
+
+  if (!isAuthed) {
+    return <AuthGate onAuth={authenticate} />;
+  }
 
   if (state.view === 'landing') {
     return (
       <div style={{ position: 'relative', width: '100%', overflowX: 'hidden' }}>
-        <Navbar onGoApp={() => setView('app')} />
-        <Hero heroQuery={state.heroQuery} onHeroInput={setHeroQuery} onGoApp={() => setView('app')} />
+        <Navbar onGoApp={() => app.setView('app')} />
+        <Hero heroQuery={state.heroQuery} onHeroInput={app.setHeroQuery} onGoApp={app.goAppFromHero} />
         <HowItWorks />
         <Features />
-        <FooterCTA onGoApp={() => setView('app')} />
+        <FooterCTA onGoApp={() => app.setView('app')} />
         {state.toast && <Toast message={state.toast} />}
       </div>
     );
   }
 
+  const exportWith = async (fn: () => Promise<void>, label: string) => {
+    try { await fn(); app.flash(`${label} downloaded.`); }
+    catch (e) { app.flash('Error: ' + (e instanceof Error ? e.message : String(e)).slice(0, 80)); }
+  };
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EDEEF5' }}>
-      <Sidebar tab={state.tab} onSetTab={setTab} onGoSite={() => setView('landing')} />
+      <Sidebar tab={state.tab} onSetTab={app.setTab} onGoSite={() => app.setView('landing')} />
       <main className="cd-scroll" style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px 34px 80px' }}>
           {state.tab === 'accounts' && (
-            <Accounts accounts={state.accounts} onToggle={toggleAccount} />
+            <Accounts
+              accounts={state.accounts}
+              connectingId={state.connectingId}
+              loading={state.loading}
+              error={state.error}
+              onConnect={app.connectAccount}
+              onDisconnect={app.disconnectAccount}
+              onRetry={app.retry}
+            />
           )}
           {state.tab === 'approvals' && (
             <>
@@ -66,18 +65,22 @@ export default function App() {
                 selectedContentId={state.selectedContentId}
                 previewPlatform={state.previewPlatform}
                 accounts={state.accounts}
-                onSelect={setSelectedContentId}
-                onApprove={approve}
-                onReject={reject}
-                onSetPreviewPlatform={setPreviewPlatform}
-                onOpenComposer={openComposer}
+                loading={state.loading}
+                error={state.error}
+                onSelect={app.setSelectedContentId}
+                onApprove={app.approve}
+                onReject={app.reject}
+                onSetPreviewPlatform={app.setPreviewPlatform}
+                onOpenComposer={() => app.openComposer()}
+                onRetry={app.retry}
               />
               {state.composerOpen && (
                 <Composer
-                  composer={state.composer}
-                  onClose={closeComposer}
-                  onSetField={setComposerField}
-                  onSave={saveComposer}
+                  accounts={state.accounts}
+                  prefill={state.composerPrefill}
+                  onClose={app.closeComposer}
+                  onSaved={app.onComposerSaved}
+                  flash={app.flash}
                 />
               )}
             </>
@@ -87,24 +90,31 @@ export default function App() {
               weekOffset={state.weekOffset}
               scheduled={state.scheduled}
               content={state.content}
+              accounts={state.accounts}
               openChip={state.openChip}
-              dragRef={dragRef}
-              onPrevWeek={() => setWeekOffset(state.weekOffset - 1)}
-              onNextWeek={() => setWeekOffset(state.weekOffset + 1)}
-              onDropOnCell={dropOnCell}
-              onPublishNow={publishNow}
-              onCancelSched={cancelSched}
-              onSetOpenChip={setOpenChip}
-              onCloseChip={closeChip}
+              dragRef={app.dragRef}
+              loading={state.loading}
+              error={state.error}
+              onPrevWeek={() => app.setWeekOffset(state.weekOffset - 1)}
+              onNextWeek={() => app.setWeekOffset(state.weekOffset + 1)}
+              onDropOnCell={app.dropOnCell}
+              onPublishNow={app.publishNow}
+              onCancelSched={app.cancelSched}
+              onSetOpenChip={app.setOpenChip}
+              onCloseChip={app.closeChip}
+              onRetry={app.retry}
             />
           )}
           {state.tab === 'analytics' && (
             <Analytics
               metrics={state.metrics}
               metricKey={state.metricKey}
-              onSetMetricKey={setMetricKey}
-              onExportCsv={() => flash('CSV exported \u2014 mirrors the on-screen numbers exactly.')}
-              onExportPdf={() => flash('PDF exported \u2014 mirrors the on-screen numbers exactly.')}
+              loading={state.loading}
+              error={state.error}
+              onSetMetricKey={app.setMetricKey}
+              onExportCsv={() => exportWith(exportCsv, 'CSV')}
+              onExportPdf={() => exportWith(exportPdf, 'PDF')}
+              onRetry={app.retry}
             />
           )}
         </div>
