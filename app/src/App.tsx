@@ -8,11 +8,11 @@ import { HowItWorks } from '@/components/landing/HowItWorks';
 import { Features } from '@/components/landing/Features';
 import { FooterCTA } from '@/components/landing/FooterCTA';
 import { Sidebar } from '@/components/app/Sidebar';
+import { Create } from '@/components/app/Create';
 import { Accounts } from '@/components/app/Accounts';
 import { Approvals } from '@/components/app/Approvals';
 import { Calendar } from '@/components/app/Calendar';
 import { Analytics } from '@/components/app/Analytics';
-import { Composer } from '@/components/app/Composer';
 import { Toast } from '@/components/app/Toast';
 
 export default function App() {
@@ -47,6 +47,23 @@ export default function App() {
       <Sidebar tab={state.tab} onSetTab={app.setTab} onGoSite={() => app.setView('landing')} />
       <main className="cd-scroll" style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px 34px 80px' }}>
+
+          {state.tab === 'create' && (
+            <Create
+              accounts={state.accounts}
+              content={state.content}
+              prefill={state.createPrefill}
+              loading={state.loading}
+              error={state.error}
+              onRetry={app.retry}
+              onSaved={app.onContentSaved}
+              flash={app.flash}
+              onGoAccounts={() => app.setTab('accounts')}
+              onGoCalendar={() => app.setTab('calendar')}
+              onGoAnalytics={() => app.setTab('analytics')}
+            />
+          )}
+
           {state.tab === 'accounts' && (
             <Accounts
               accounts={state.accounts}
@@ -58,33 +75,24 @@ export default function App() {
               onRetry={app.retry}
             />
           )}
-          {state.tab === 'approvals' && (
-            <>
-              <Approvals
-                content={state.content}
-                selectedContentId={state.selectedContentId}
-                previewPlatform={state.previewPlatform}
-                accounts={state.accounts}
-                loading={state.loading}
-                error={state.error}
-                onSelect={app.setSelectedContentId}
-                onApprove={app.approve}
-                onReject={app.reject}
-                onSetPreviewPlatform={app.setPreviewPlatform}
-                onOpenComposer={() => app.openComposer()}
-                onRetry={app.retry}
-              />
-              {state.composerOpen && (
-                <Composer
-                  accounts={state.accounts}
-                  prefill={state.composerPrefill}
-                  onClose={app.closeComposer}
-                  onSaved={app.onComposerSaved}
-                  flash={app.flash}
-                />
-              )}
-            </>
+
+          {state.tab === 'review' && (
+            <Approvals
+              content={state.content}
+              selectedContentId={state.selectedContentId}
+              previewPlatform={state.previewPlatform}
+              accounts={state.accounts}
+              loading={state.loading}
+              error={state.error}
+              onSelect={app.setSelectedContentId}
+              onApprove={app.approve}
+              onReject={app.reject}
+              onSetPreviewPlatform={app.setPreviewPlatform}
+              onOpenComposer={() => app.setTab('create')}
+              onRetry={app.retry}
+            />
           )}
+
           {state.tab === 'calendar' && (
             <Calendar
               weekOffset={state.weekOffset}
@@ -105,6 +113,7 @@ export default function App() {
               onRetry={app.retry}
             />
           )}
+
           {state.tab === 'analytics' && (
             <Analytics
               metrics={state.metrics}
@@ -117,6 +126,7 @@ export default function App() {
               onRetry={app.retry}
             />
           )}
+
         </div>
       </main>
       {state.toast && <Toast message={state.toast} />}

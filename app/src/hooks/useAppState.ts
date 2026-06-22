@@ -1,19 +1,18 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { AppState, PlatformKey, ScheduledPost, Account, MetricKey } from '@/types';
+import type { AppState, TabKey, PlatformKey, ScheduledPost, Account, MetricKey } from '@/types';
 import * as api from '@/api/client';
 import { addDays, mondayOf, fmtISO, hourLabel } from '@/lib/dateUtils';
 import { bandHours } from '@/lib/seedData';
 
 const initialState: AppState = {
   view: 'landing',
-  tab: 'approvals',
+  tab: 'create',
   heroQuery: '',
+  createPrefill: '',
   toast: null,
   accounts: [],
   content: [],
   scheduled: [],
-  composerOpen: false,
-  composerPrefill: '',
   previewPlatform: 'instagram',
   selectedContentId: null,
   metricKey: 'reach',
@@ -40,13 +39,8 @@ function cellToISO(date: string, hour: number): string {
   return d.toISOString();
 }
 
-interface ApiScheduledPost {
-  id: number; content_id: number; account_id: number; scheduled_time: string;
-  status: 'queued' | 'publishing' | 'published' | 'failed' | 'canceled';
-}
-
 function mapScheduled(
-  raw: ApiScheduledPost,
+  raw: api.ApiScheduledPost,
   accounts: Account[],
   content: { id: number; title: string }[],
 ): ScheduledPost {
@@ -75,7 +69,7 @@ export function useAppState() {
   const flash = useCallback((msg: string) => {
     setState(s => ({ ...s, toast: msg }));
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setState(s => ({ ...s, toast: null })), 2600);
+    toastTimerRef.current = setTimeout(() => setState(s => ({ ...s, toast: null })), 3200);
   }, []);
 
   const fail = useCallback((err: unknown, fallback: string) => {
@@ -86,6 +80,20 @@ export function useAppState() {
 
   // ─── Loaders ────────────────────────────────────────────────────────────────
 
+  const loadCreate = useCallback(async () => {
+    setState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const [content, accounts] = await Promise.all([api.getContent(), api.getAccounts()]);
+      setState(s => {
+        const firstConnected = accounts.find(a => a.status === 'connected');
+        return {
+          ...s, content, accounts, loading: false,
+          previewPlatform: firstConnected?.platform ?? s.previewPlatform,
+        };
+      });
+    } catch (e) { fail(e, 'Could not load.'); }
+  }, [fail]);
+
   const loadAccounts = useCallback(async () => {
     setState(s => ({ ...s, loading: true, error: null }));
     try {
@@ -94,7 +102,7 @@ export function useAppState() {
     } catch (e) { fail(e, 'Could not load accounts.'); }
   }, [fail]);
 
-  const loadApprovals = useCallback(async () => {
+  const loadReview = useCallback(async () => {
     setState(s => ({ ...s, loading: true, error: null }));
     try {
       const [content, accounts] = await Promise.all([api.getContent(), api.getAccounts()]);
@@ -102,10 +110,7 @@ export function useAppState() {
         const firstConnected = accounts.find(a => a.status === 'connected');
         const pending = content.find(c => c.status === 'pending_approval');
         return {
-          ...s,
-          content,
-          accounts,
-          loading: false,
+          ...s, content, accounts, loading: false,
           selectedContentId: s.selectedContentId ?? pending?.id ?? content[0]?.id ?? null,
           previewPlatform: firstConnected?.platform ?? s.previewPlatform,
         };
@@ -146,8 +151,7 @@ export function useAppState() {
       ]);
       const days = dates.map(d => new Date(d + 'T00:00:00'));
       setState(s => ({
-        ...s,
-        loading: false,
+        ...s, loading: false,
         metrics: {
           series: { reach, engagement, followers, clicks },
           days: days.length ? days : s.metrics.days,
@@ -158,27 +162,28 @@ export function useAppState() {
     } catch (e) { fail(e, 'Could not load analytics.'); }
   }, [fail]);
 
-  // Fetch the active tab's data whenever the app view / tab / week changes.
   useEffect(() => {
     if (state.view !== 'app') return;
-    if (state.tab === 'accounts') loadAccounts();
-    else if (state.tab === 'approvals') loadApprovals();
+    if (state.tab === 'create')    loadCreate();
+    else if (state.tab === 'accounts') loadAccounts();
+    else if (state.tab === 'review')   loadReview();
     else if (state.tab === 'calendar') loadCalendar(state.weekOffset);
     else if (state.tab === 'analytics') loadAnalytics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.view, state.tab, state.weekOffset]);
 
   const retry = useCallback(() => {
-    if (state.tab === 'accounts') loadAccounts();
-    else if (state.tab === 'approvals') loadApprovals();
+    if (state.tab === 'create')    loadCreate();
+    else if (state.tab === 'accounts') loadAccounts();
+    else if (state.tab === 'review')   loadReview();
     else if (state.tab === 'calendar') loadCalendar(state.weekOffset);
     else if (state.tab === 'analytics') loadAnalytics();
-  }, [state.tab, state.weekOffset, loadAccounts, loadApprovals, loadCalendar, loadAnalytics]);
+  }, [state.tab, state.weekOffset, loadCreate, loadAccounts, loadReview, loadCalendar, loadAnalytics]);
 
-  // ─── View / UI setters ───────────────────────────────────────────────────────
+  // ─── View / UI setters ─────────────────────────────────────────────────────
 
   const setView = useCallback((view: 'landing' | 'app') => setState(s => ({ ...s, view })), []);
-  const setTab = useCallback((tab: AppState['tab']) => setState(s => ({ ...s, tab, error: null })), []);
+  const setTab = useCallback((tab: TabKey) => setState(s => ({ ...s, tab, error: null })), []);
   const setHeroQuery = useCallback((heroQuery: string) => setState(s => ({ ...s, heroQuery })), []);
   const setPreviewPlatform = useCallback((previewPlatform: PlatformKey) => setState(s => ({ ...s, previewPlatform })), []);
   const setSelectedContentId = useCallback((selectedContentId: number) => setState(s => ({ ...s, selectedContentId })), []);
@@ -187,38 +192,33 @@ export function useAppState() {
   const setOpenChip = useCallback((openChip: number | null) => setState(s => ({ ...s, openChip })), []);
   const closeChip = useCallback(() => setState(s => (s.openChip !== null ? { ...s, openChip: null } : s)), []);
 
-  const openComposer = useCallback((prefill = '') => setState(s => ({ ...s, composerOpen: true, composerPrefill: prefill })), []);
-  const closeComposer = useCallback(() => setState(s => ({ ...s, composerOpen: false, composerPrefill: '' })), []);
-
-  // Hero search → open the app + composer pre-filled with the typed text.
   const goAppFromHero = useCallback(() => {
     setState(s => ({
       ...s,
       view: 'app',
-      tab: 'approvals',
-      composerOpen: s.heroQuery.trim() ? true : s.composerOpen,
-      composerPrefill: s.heroQuery.trim(),
+      tab: 'create',
+      createPrefill: s.heroQuery.trim(),
     }));
   }, []);
 
-  // ─── Mutations (API call → refetch) ────────────────────────────────────────────
+  // ─── Mutations ─────────────────────────────────────────────────────────────
 
   const approve = useCallback(async (id: number) => {
-    try { await api.approveContent(id); await loadApprovals(); flash('Approved — ready to schedule.'); }
+    try { await api.approveContent(id); await loadReview(); flash('Approved — ready to schedule.'); }
     catch (e) { fail(e, ''); }
-  }, [loadApprovals, flash, fail]);
+  }, [loadReview, flash, fail]);
 
   const reject = useCallback(async (id: number) => {
-    try { await api.rejectContent(id); await loadApprovals(); flash('Rejected.'); }
+    try { await api.rejectContent(id); await loadReview(); flash('Rejected.'); }
     catch (e) { fail(e, ''); }
-  }, [loadApprovals, flash, fail]);
+  }, [loadReview, flash, fail]);
 
   const connectAccount = useCallback(async (account: Account, creds?: { handle: string; app_password: string }) => {
     setState(s => ({ ...s, connectingId: account.id }));
     try {
       await api.connectAccount(account.platform, creds);
       await loadAccounts();
-      flash(`${account.platform === 'bluesky' ? 'Bluesky connected — posts go out live.' : 'Connected (simulated).'}`);
+      flash(account.platform === 'bluesky' ? 'Bluesky connected — posts go out live.' : 'Connected (simulated).');
     } catch (e) { fail(e, ''); }
     finally { setState(s => ({ ...s, connectingId: null })); }
   }, [loadAccounts, flash, fail]);
@@ -260,11 +260,10 @@ export function useAppState() {
     } catch (e) { fail(e, ''); }
   }, [state.weekOffset, state.accounts, loadCalendar, flash, fail]);
 
-  // Called by the Composer after it has created/scheduled content via the API.
-  const onComposerSaved = useCallback(async (msg: string) => {
-    await loadApprovals();
+  const onContentSaved = useCallback(async (msg: string) => {
+    await loadCreate();
     flash(msg);
-  }, [loadApprovals, flash]);
+  }, [loadCreate, flash]);
 
   return {
     state,
@@ -277,8 +276,6 @@ export function useAppState() {
     setMetricKey,
     setWeekOffset,
     setOpenChip,
-    openComposer,
-    closeComposer,
     goAppFromHero,
     flash,
     retry,
@@ -289,7 +286,7 @@ export function useAppState() {
     publishNow,
     cancelSched,
     dropOnCell,
-    onComposerSaved,
+    onContentSaved,
     closeChip,
   };
 }

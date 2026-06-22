@@ -3,8 +3,6 @@ import type {
 } from '@/types';
 import { PLATFORMS } from '@/types';
 
-// Default to the Vite dev proxy ('/api'); set VITE_API_BASE_URL on Vercel to
-// the Koyeb origin (e.g. https://your-app.koyeb.app/api).
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 const KEY_STORAGE = 'insane_post_key';
@@ -17,7 +15,7 @@ class Unauthorized extends Error {}
 function handle401(res: Response) {
   if (res.status === 401) {
     clearKey();
-    window.location.reload(); // kicks back to AuthGate
+    window.location.reload();
     throw new Unauthorized('Unauthorized');
   }
 }
@@ -53,7 +51,7 @@ interface ApiAccount {
   status: 'connected' | 'disconnected' | 'error'; connected_at: string | null;
   credentials_ref: string | null;
 }
-interface ApiScheduledPost {
+export interface ApiScheduledPost {
   id: number; content_id: number; account_id: number; scheduled_time: string;
   status: 'queued' | 'publishing' | 'published' | 'failed' | 'canceled';
   platform_post_id: string | null; platform_post_url: string | null;
@@ -73,7 +71,7 @@ interface ApiPostMetric {
   shares: number; clicks: number; followers: number; engagement: number;
 }
 
-// ─── Mappers (backend → UI shapes) ──────────────────────────────────────────────
+// ─── Mappers ────────────────────────────────────────────────────────────────────
 
 export const mapContent = (c: ApiContent): ContentItem => ({
   id: c.id, title: c.title, body: c.body, hashtags: c.hashtags ?? [],
@@ -130,8 +128,8 @@ export async function disconnectAccount(id: number): Promise<Account> {
 
 export async function schedulePost(data: {
   content_id: number; account_ids: number[]; scheduled_time: string;
-}): Promise<void> {
-  await request('POST', '/schedule', data);
+}): Promise<ApiScheduledPost[]> {
+  return request<ApiScheduledPost[]>('POST', '/schedule', data);
 }
 
 export async function getCalendar(from: string, to: string): Promise<ApiScheduledPost[]> {
@@ -146,8 +144,8 @@ export async function cancelSchedule(id: number): Promise<void> {
   await request('POST', `/schedule/${id}/cancel`);
 }
 
-export async function publishNow(id: number): Promise<void> {
-  await request('POST', `/schedule/${id}/publish-now`);
+export async function publishNow(id: number): Promise<ApiScheduledPost> {
+  return request<ApiScheduledPost>('POST', `/schedule/${id}/publish-now`);
 }
 
 // ─── Metrics ────────────────────────────────────────────────────────────────────
@@ -188,14 +186,14 @@ export async function getMetricsByPost(): Promise<MetricRow[]> {
   }));
 }
 
-// ─── Media upload (multipart — no JSON Content-Type) ─────────────────────────────
+// ─── Media upload ─────────────────────────────────────────────────────────────────
 
 export async function uploadMedia(file: File): Promise<string> {
   const fd = new FormData();
   fd.append('file', file);
   const res = await fetch(`${BASE}/media/upload`, {
     method: 'POST',
-    headers: { 'X-App-Key': getKey() }, // browser sets multipart boundary itself
+    headers: { 'X-App-Key': getKey() },
     body: fd,
   });
   handle401(res);
@@ -204,7 +202,7 @@ export async function uploadMedia(file: File): Promise<string> {
   return data.media_url;
 }
 
-// ─── Export (auth header → blob → download; window.open can't send headers) ──────
+// ─── Export ───────────────────────────────────────────────────────────────────────
 
 async function downloadBlob(path: string, filename: string): Promise<void> {
   const res = await fetch(`${BASE}${path}`, { headers: { 'X-App-Key': getKey() } });

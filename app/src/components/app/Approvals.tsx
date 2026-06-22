@@ -33,10 +33,10 @@ export function Approvals({
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
         <div>
           <h1 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 30, letterSpacing: '-.02em', margin: '0 0 4px', color: '#18181b' }}>
-            Approvals
+            Review queue
           </h1>
           <p style={{ color: '#71717a', fontSize: '14.5px', margin: 0 }}>
-            Review the queue, approve in one click, and preview exactly how it posts.
+            Team drafts land here. Approve in one click to unlock scheduling, or reject to send back.
           </p>
         </div>
         <button
@@ -53,11 +53,11 @@ export function Approvals({
         <LoadingPanel label="Loading content…" />
       ) : content.length === 0 ? (
         <EmptyState
-          title="No content yet"
-          hint="Draft your first post and it will show up here for review."
+          title="No drafts yet"
+          hint="Use 'Save as draft' in Create to send a post here for team review."
           action={
             <button onClick={onOpenComposer} style={{ border: 'none', background: '#9fff00', color: '#000', borderRadius: 10, padding: '11px 18px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
-              Create your first draft
+              Go to Create →
             </button>
           }
         />

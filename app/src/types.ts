@@ -1,7 +1,5 @@
 export type PlatformKey = 'facebook' | 'instagram' | 'x' | 'tiktok' | 'bluesky';
 
-// label + brand color (icon background). The actual brand glyph lives in
-// components/icons/PlatformIcon.tsx — the single source of truth for logos.
 export const PLATFORMS: Record<PlatformKey, { label: string; short: string; color: string }> = {
   facebook:  { label: 'Facebook',  short: 'f',  color: '#1877F2' },
   instagram: { label: 'Instagram', short: 'IG', color: '#E1306C' },
@@ -40,7 +38,7 @@ export interface Account {
   handle: string;
   status: AccountStatus;
   connected_at: string | null;
-  live: boolean; // bluesky is the only real (live-posting) adapter
+  live: boolean;
 }
 
 export interface ContentItem {
@@ -54,41 +52,39 @@ export interface ContentItem {
   created_at: string;
 }
 
-// UI-shaped scheduled post (a calendar chip). Mapped from the backend's
-// ScheduledPost using the accounts + content lists.
 export interface ScheduledPost {
   id: number;
   contentId: number;
   accountId: number;
   platform: PlatformKey;
   title: string;
-  date: string;  // YYYY-MM-DD (local)
-  hour: number;  // snapped to a band hour for the grid
+  date: string;
+  hour: number;
   status: 'scheduled' | 'published' | 'canceled';
 }
 
-// One row of the per-post analytics table (from /api/metrics/by-post).
 export interface MetricRow {
   platform: PlatformKey;
   handle: string;
   reach: number;
   impressions: number;
-  engagement: number; // derived server-side from likes+comments+shares
+  engagement: number;
   clicks: number;
 }
 
 export type MetricKey = 'reach' | 'engagement' | 'followers' | 'clicks';
 
+export type TabKey = 'create' | 'calendar' | 'analytics' | 'accounts' | 'review';
+
 export interface AppState {
   view: 'landing' | 'app';
-  tab: 'approvals' | 'calendar' | 'analytics' | 'accounts';
+  tab: TabKey;
   heroQuery: string;
+  createPrefill: string;
   toast: string | null;
   accounts: Account[];
   content: ContentItem[];
   scheduled: ScheduledPost[];
-  composerOpen: boolean;
-  composerPrefill: string;
   previewPlatform: PlatformKey;
   selectedContentId: number | null;
   metricKey: MetricKey;
