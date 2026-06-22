@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PlatformIcon } from '@/components/icons/PlatformIcon';
+import { ALL_PLATFORMS } from '@/types';
 
 export function Features() {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -33,11 +35,7 @@ export function Features() {
             onMouseLeave={() => setHoverIdx(null)}
           >
             <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: '#1877F2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>f</span>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: '#E1306C', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600 }}>IG</span>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: '#18181b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600 }}>X</span>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: '#0f9bb0', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600 }}>TT</span>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: '#0085FF', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600 }}>bs</span>
+              {ALL_PLATFORMS.map(p => <PlatformIcon key={p} platform={p} box={30} radius={8} />)}
             </div>
             <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 20, margin: '0 0 8px', color: '#1a1a1a' }}>Five networks, one flow</h3>
             <p style={{ color: '#52525b', fontSize: '14.5px', lineHeight: 1.55, margin: 0 }}>
