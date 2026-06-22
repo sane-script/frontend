@@ -54,6 +54,7 @@ export function Navbar({ onGoApp }: NavbarProps) {
         }}>
           <button
             onClick={onGoApp}
+            data-guide="get-started"
             style={{
               display: 'inline-flex',
               alignItems: 'center',

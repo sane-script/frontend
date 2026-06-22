@@ -19,7 +19,6 @@ const initialState: AppState = {
   metricKey: 'reach',
   weekOffset: 0,
   openChip: null,
-  connectingId: null,
   loading: false,
   error: null,
   metrics: {
@@ -234,21 +233,28 @@ export function useAppState() {
     catch (e) { fail(e, ''); }
   }, [loadReview, flash, fail]);
 
-  const connectAccount = useCallback(async (account: Account, creds?: { handle: string; app_password: string }) => {
-    setState(s => ({ ...s, connectingId: account.id }));
+  // Connect creates a NEW account row (multiple handles per platform allowed).
+  // Throws on failure so the caller (Accounts) can stop its timer and surface
+  // the real backend reason. Bluesky errors return a clear 400, not a 500.
+  const connectAccount = useCallback(async (platform: PlatformKey, creds?: { handle: string; app_password: string }) => {
     try {
-      await api.connectAccount(account.platform, creds);
+      await api.connectAccount(platform, creds);
       await loadAccounts();
-      flash(account.platform === 'bluesky' ? 'Bluesky connected — posts go out live.' : 'Connected (simulated).');
-    } catch (e) { fail(e, ''); }
-    finally { setState(s => ({ ...s, connectingId: null })); }
-  }, [loadAccounts, flash, fail]);
+      flash(platform === 'bluesky' ? 'Bluesky connected — posts go out live.' : 'Connected (simulated).');
+    } catch (e) {
+      flash('Error: ' + (e instanceof Error ? e.message : String(e)).slice(0, 90));
+      throw e;
+    }
+  }, [loadAccounts, flash]);
 
   const disconnectAccount = useCallback(async (account: Account) => {
-    setState(s => ({ ...s, connectingId: account.id }));
     try { await api.disconnectAccount(account.id); await loadAccounts(); flash('Disconnected.'); }
     catch (e) { fail(e, ''); }
-    finally { setState(s => ({ ...s, connectingId: null })); }
+  }, [loadAccounts, flash, fail]);
+
+  const removeAccount = useCallback(async (id: number) => {
+    try { await api.deleteAccount(id); await loadAccounts(); flash('Account removed.'); }
+    catch (e) { fail(e, ''); }
   }, [loadAccounts, flash, fail]);
 
   const publishNow = useCallback(async (sid: number) => {
@@ -345,6 +351,7 @@ export function useAppState() {
     reject,
     connectAccount,
     disconnectAccount,
+    removeAccount,
     publishNow,
     cancelSched,
     dropOnCell,
