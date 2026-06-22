@@ -1,5 +1,7 @@
 export type PlatformKey = 'facebook' | 'instagram' | 'x' | 'tiktok' | 'bluesky';
 
+// label + brand color (icon background). The actual brand glyph lives in
+// components/icons/PlatformIcon.tsx — the single source of truth for logos.
 export const PLATFORMS: Record<PlatformKey, { label: string; short: string; color: string }> = {
   facebook:  { label: 'Facebook',  short: 'f',  color: '#1877F2' },
   instagram: { label: 'Instagram', short: 'IG', color: '#E1306C' },
@@ -7,6 +9,8 @@ export const PLATFORMS: Record<PlatformKey, { label: string; short: string; colo
   tiktok:    { label: 'TikTok',    short: 'TT', color: '#0f9bb0' },
   bluesky:   { label: 'Bluesky',   short: 'bs', color: '#0085FF' },
 };
+
+export const ALL_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'x', 'tiktok', 'bluesky'];
 
 export type ContentStatus =
   | 'draft'
@@ -27,18 +31,20 @@ export const STATUS_META: Record<ContentStatus, { label: string; bg: string; fg:
   failed:           { label: 'Failed',    bg: '#fee2e2', fg: '#b91c1c' },
 };
 
+export type AccountStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+
 export interface Account {
-  id: string;
+  id: number;
   platform: PlatformKey;
   display_name: string;
   handle: string;
-  status: 'connected' | 'disconnected' | 'connecting' | 'error';
+  status: AccountStatus;
   connected_at: string | null;
-  live?: boolean;
+  live: boolean; // bluesky is the only real (live-posting) adapter
 }
 
 export interface ContentItem {
-  id: string;
+  id: number;
   title: string;
   body: string;
   hashtags: string[];
@@ -48,24 +54,30 @@ export interface ContentItem {
   created_at: string;
 }
 
+// UI-shaped scheduled post (a calendar chip). Mapped from the backend's
+// ScheduledPost using the accounts + content lists.
 export interface ScheduledPost {
-  id: string;
-  contentId: string;
+  id: number;
+  contentId: number;
+  accountId: number;
   platform: PlatformKey;
   title: string;
-  date: string;
-  hour: number;
+  date: string;  // YYYY-MM-DD (local)
+  hour: number;  // snapped to a band hour for the grid
   status: 'scheduled' | 'published' | 'canceled';
 }
 
+// One row of the per-post analytics table (from /api/metrics/by-post).
 export interface MetricRow {
-  title: string;
   platform: PlatformKey;
-  published: string;
+  handle: string;
   reach: number;
-  engagement: number;
+  impressions: number;
+  engagement: number; // derived server-side from likes+comments+shares
   clicks: number;
 }
+
+export type MetricKey = 'reach' | 'engagement' | 'followers' | 'clicks';
 
 export interface AppState {
   view: 'landing' | 'app';
@@ -76,15 +88,25 @@ export interface AppState {
   content: ContentItem[];
   scheduled: ScheduledPost[];
   composerOpen: boolean;
-  composer: { title: string; body: string; hashtags: string; link: string; media: string };
+  composerPrefill: string;
   previewPlatform: PlatformKey;
-  selectedContentId: string;
-  metricKey: 'reach' | 'engagement' | 'followers' | 'clicks';
+  selectedContentId: number | null;
+  metricKey: MetricKey;
   weekOffset: number;
-  openChip: string | null;
+  openChip: number | null;
+  connectingId: number | null;
+  loading: boolean;
+  error: string | null;
   metrics: {
-    series: Record<string, number[]>;
+    series: Record<MetricKey, number[]>;
     days: Date[];
     byPost: MetricRow[];
+    overview: {
+      reach: number;
+      engagement: number;
+      followers: number;
+      clicks: number;
+      impressions: number;
+    };
   };
 }

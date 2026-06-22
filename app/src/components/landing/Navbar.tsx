@@ -54,12 +54,6 @@ export function Navbar({ onGoApp }: NavbarProps) {
         }}>
           <button
             onClick={onGoApp}
-            style={{ fontSize: '13.5px', color: '#1a1a1a', textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-          >
-            sign in
-          </button>
-          <button
-            onClick={onGoApp}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

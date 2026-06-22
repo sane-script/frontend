@@ -1,29 +1,75 @@
-import { useState, useCallback, useRef } from 'react';
-import type { AppState, PlatformKey, ContentItem } from '@/types';
-import { seedAccounts, seedContent, genScheduled, genMetrics } from '@/lib/seedData';
-import { fmtISO, hourLabel } from '@/lib/dateUtils';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import type { AppState, PlatformKey, ScheduledPost, Account, MetricKey } from '@/types';
+import * as api from '@/api/client';
+import { addDays, mondayOf, fmtISO, hourLabel } from '@/lib/dateUtils';
+import { bandHours } from '@/lib/seedData';
 
 const initialState: AppState = {
   view: 'landing',
   tab: 'approvals',
   heroQuery: '',
   toast: null,
-  accounts: seedAccounts,
-  content: seedContent,
-  scheduled: genScheduled(),
+  accounts: [],
+  content: [],
+  scheduled: [],
   composerOpen: false,
-  composer: { title: '', body: '', hashtags: '', link: '', media: '' },
+  composerPrefill: '',
   previewPlatform: 'instagram',
-  selectedContentId: 'c1',
+  selectedContentId: null,
   metricKey: 'reach',
   weekOffset: 0,
   openChip: null,
-  metrics: genMetrics(),
+  connectingId: null,
+  loading: false,
+  error: null,
+  metrics: {
+    series: { reach: [], engagement: [], followers: [], clicks: [] },
+    days: [],
+    byPost: [],
+    overview: { reach: 0, engagement: 0, followers: 0, clicks: 0, impressions: 0 },
+  },
 };
+
+function snapToBand(hour: number): number {
+  return bandHours.reduce((best, h) => (Math.abs(h - hour) < Math.abs(best - hour) ? h : best), bandHours[0]);
+}
+
+function cellToISO(date: string, hour: number): string {
+  const d = new Date(`${date}T00:00:00`);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
+}
+
+interface ApiScheduledPost {
+  id: number; content_id: number; account_id: number; scheduled_time: string;
+  status: 'queued' | 'publishing' | 'published' | 'failed' | 'canceled';
+}
+
+function mapScheduled(
+  raw: ApiScheduledPost,
+  accounts: Account[],
+  content: { id: number; title: string }[],
+): ScheduledPost {
+  const acc = accounts.find(a => a.id === raw.account_id);
+  const c = content.find(x => x.id === raw.content_id);
+  const dt = new Date(raw.scheduled_time);
+  const status: ScheduledPost['status'] =
+    raw.status === 'published' ? 'published' : raw.status === 'canceled' ? 'canceled' : 'scheduled';
+  return {
+    id: raw.id,
+    contentId: raw.content_id,
+    accountId: raw.account_id,
+    platform: acc?.platform ?? 'x',
+    title: c?.title ?? 'Scheduled post',
+    date: fmtISO(dt),
+    hour: snapToBand(dt.getHours()),
+    status,
+  };
+}
 
 export function useAppState() {
   const [state, setState] = useState<AppState>(initialState);
-  const dragRef = useRef<{ type: 'chip' | 'rail'; id: string } | null>(null);
+  const dragRef = useRef<{ type: 'chip' | 'rail'; id: number } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = useCallback((msg: string) => {
@@ -32,166 +78,193 @@ export function useAppState() {
     toastTimerRef.current = setTimeout(() => setState(s => ({ ...s, toast: null })), 2600);
   }, []);
 
-  const setView = useCallback((view: 'landing' | 'app') => {
-    setState(s => ({ ...s, view }));
-  }, []);
-
-  const setTab = useCallback((tab: AppState['tab']) => {
-    setState(s => ({ ...s, tab }));
-  }, []);
-
-  const setHeroQuery = useCallback((heroQuery: string) => {
-    setState(s => ({ ...s, heroQuery }));
-  }, []);
-
-  const setPreviewPlatform = useCallback((previewPlatform: PlatformKey) => {
-    setState(s => ({ ...s, previewPlatform }));
-  }, []);
-
-  const setSelectedContentId = useCallback((selectedContentId: string) => {
-    setState(s => ({ ...s, selectedContentId }));
-  }, []);
-
-  const setMetricKey = useCallback((metricKey: AppState['metricKey']) => {
-    setState(s => ({ ...s, metricKey }));
-  }, []);
-
-  const setWeekOffset = useCallback((weekOffset: number) => {
-    setState(s => ({ ...s, weekOffset, openChip: null }));
-  }, []);
-
-  const setOpenChip = useCallback((openChip: string | null) => {
-    setState(s => ({ ...s, openChip }));
-  }, []);
-
-  const openComposer = useCallback(() => {
-    setState(s => ({ ...s, composerOpen: true }));
-  }, []);
-
-  const closeComposer = useCallback(() => {
-    setState(s => ({ ...s, composerOpen: false }));
-  }, []);
-
-  const setComposerField = useCallback((field: keyof AppState['composer'], value: string) => {
-    setState(s => ({ ...s, composer: { ...s.composer, [field]: value } }));
-  }, []);
-
-  const approve = useCallback((id: string) => {
-    setState(s => ({
-      ...s,
-      content: s.content.map(c => c.id === id ? { ...c, status: 'approved' as const } : c),
-    }));
-    flash('Approved \u2014 ready to schedule.');
+  const fail = useCallback((err: unknown, fallback: string) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    flash('Error: ' + msg.slice(0, 80));
+    setState(s => ({ ...s, error: fallback, loading: false }));
   }, [flash]);
 
-  const reject = useCallback((id: string) => {
-    setState(s => ({
-      ...s,
-      content: s.content.map(c => c.id === id ? { ...c, status: 'rejected' as const } : c),
-    }));
-    flash('Rejected.');
-  }, [flash]);
+  // ─── Loaders ────────────────────────────────────────────────────────────────
 
-  const toggleAccount = useCallback((id: string) => {
-    setState(s => {
-      const acc = s.accounts.find(a => a.id === id);
-      if (!acc) return s;
-      if (acc.status === 'connected') {
-        return {
-          ...s,
-          accounts: s.accounts.map(a => a.id === id ? { ...a, status: 'disconnected' as const, connected_at: null } : a),
-        };
-      } else {
-        return {
-          ...s,
-          accounts: s.accounts.map(a => a.id === id ? { ...a, status: 'connecting' as const } : a),
-        };
-      }
-    });
+  const loadAccounts = useCallback(async () => {
+    setState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const accounts = await api.getAccounts();
+      setState(s => ({ ...s, accounts, loading: false }));
+    } catch (e) { fail(e, 'Could not load accounts.'); }
+  }, [fail]);
 
-    setState(s => {
-      const acc = s.accounts.find(a => a.id === id);
-      if (!acc || acc.status !== 'connecting') return s;
-      setTimeout(() => {
-        setState(s2 => ({
-          ...s2,
-          accounts: s2.accounts.map(a => a.id === id ? { ...a, status: 'connected' as const, connected_at: fmtISO(new Date()) } : a),
-        }));
-        flash('Connected in under a minute.');
-      }, 1000);
-      return s;
-    });
-  }, [flash]);
-
-  const publishNow = useCallback((sid: string) => {
-    setState(s => ({
-      ...s,
-      scheduled: s.scheduled.map(p => p.id === sid ? { ...p, status: 'published' as const } : p),
-    }));
-    flash('Published now.');
-  }, [flash]);
-
-  const cancelSched = useCallback((sid: string) => {
-    setState(s => ({
-      ...s,
-      scheduled: s.scheduled.filter(p => p.id !== sid),
-    }));
-    flash('Schedule cancelled.');
-  }, [flash]);
-
-  const dropOnCell = useCallback((date: string, hour: number) => {
-    const item = dragRef.current;
-    if (!item) return;
-    if (item.type === 'chip') {
-      setState(s => ({
-        ...s,
-        scheduled: s.scheduled.map(p => p.id === item.id ? { ...p, date, hour } : p),
-      }));
-      flash('Rescheduled to ' + hourLabel(hour) + '.');
-    } else if (item.type === 'rail') {
+  const loadApprovals = useCallback(async () => {
+    setState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const [content, accounts] = await Promise.all([api.getContent(), api.getAccounts()]);
       setState(s => {
-        const c = s.content.find(x => x.id === item.id);
-        const nid = 's' + Date.now();
+        const firstConnected = accounts.find(a => a.status === 'connected');
+        const pending = content.find(c => c.status === 'pending_approval');
         return {
           ...s,
-          scheduled: [...s.scheduled, { id: nid, contentId: item.id, platform: 'instagram' as PlatformKey, title: c ? c.title : 'New post', date, hour, status: 'scheduled' as const }],
-          content: s.content.map(x => x.id === item.id ? { ...x, status: 'scheduled' as const } : x),
+          content,
+          accounts,
+          loading: false,
+          selectedContentId: s.selectedContentId ?? pending?.id ?? content[0]?.id ?? null,
+          previewPlatform: firstConnected?.platform ?? s.previewPlatform,
         };
       });
-      flash('Scheduled \u2014 appears on the calendar instantly.');
-    }
-    dragRef.current = null;
-  }, [flash]);
+    } catch (e) { fail(e, 'Could not load content.'); }
+  }, [fail]);
 
-  const saveComposer = useCallback(() => {
-    setState(s => {
-      const c = s.composer;
-      if (!c.title.trim()) return s;
-      const nid = 'c' + Date.now();
-      const item: ContentItem = {
-        id: nid,
-        title: c.title,
-        body: c.body,
-        hashtags: c.hashtags.split(/\s+/).filter(Boolean),
-        link: c.link,
-        media_url: c.media,
-        status: 'pending_approval',
-        created_at: fmtISO(new Date()),
-      };
-      return {
+  const loadCalendar = useCallback(async (weekOffset: number) => {
+    setState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const mon = mondayOf(addDays(new Date(), weekOffset * 7));
+      const from = new Date(mon); from.setHours(0, 0, 0, 0);
+      const to = addDays(mon, 7); to.setHours(0, 0, 0, 0);
+      const [raw, content, accounts] = await Promise.all([
+        api.getCalendar(from.toISOString(), to.toISOString()),
+        api.getContent(),
+        api.getAccounts(),
+      ]);
+      const scheduled = raw.map(r => mapScheduled(r, accounts, content));
+      setState(s => ({ ...s, scheduled, content, accounts, loading: false }));
+    } catch (e) { fail(e, 'Could not load the calendar.'); }
+  }, [fail]);
+
+  const loadAnalytics = useCallback(async () => {
+    setState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const today = new Date();
+      const from = fmtISO(addDays(today, -29));
+      const to = fmtISO(today);
+      const [overview, reach, engagement, followers, clicks, dates, byPost] = await Promise.all([
+        api.getMetricsOverview(from, to),
+        api.getMetricsTimeseries('reach', from, to),
+        api.getMetricsTimeseries('engagement', from, to),
+        api.getMetricsTimeseries('followers', from, to),
+        api.getMetricsTimeseries('clicks', from, to),
+        api.getMetricsTimeseriesDates('reach', from, to),
+        api.getMetricsByPost(),
+      ]);
+      const days = dates.map(d => new Date(d + 'T00:00:00'));
+      setState(s => ({
         ...s,
-        content: [item, ...s.content],
-        composerOpen: false,
-        composer: { title: '', body: '', hashtags: '', link: '', media: '' },
-        selectedContentId: nid,
-      };
-    });
-    flash('Draft created \u2014 pending approval.');
-  }, [flash]);
+        loading: false,
+        metrics: {
+          series: { reach, engagement, followers, clicks },
+          days: days.length ? days : s.metrics.days,
+          byPost,
+          overview,
+        },
+      }));
+    } catch (e) { fail(e, 'Could not load analytics.'); }
+  }, [fail]);
 
-  const closeChip = useCallback(() => {
-    setState(s => s.openChip ? { ...s, openChip: null } : s);
+  // Fetch the active tab's data whenever the app view / tab / week changes.
+  useEffect(() => {
+    if (state.view !== 'app') return;
+    if (state.tab === 'accounts') loadAccounts();
+    else if (state.tab === 'approvals') loadApprovals();
+    else if (state.tab === 'calendar') loadCalendar(state.weekOffset);
+    else if (state.tab === 'analytics') loadAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.view, state.tab, state.weekOffset]);
+
+  const retry = useCallback(() => {
+    if (state.tab === 'accounts') loadAccounts();
+    else if (state.tab === 'approvals') loadApprovals();
+    else if (state.tab === 'calendar') loadCalendar(state.weekOffset);
+    else if (state.tab === 'analytics') loadAnalytics();
+  }, [state.tab, state.weekOffset, loadAccounts, loadApprovals, loadCalendar, loadAnalytics]);
+
+  // ─── View / UI setters ───────────────────────────────────────────────────────
+
+  const setView = useCallback((view: 'landing' | 'app') => setState(s => ({ ...s, view })), []);
+  const setTab = useCallback((tab: AppState['tab']) => setState(s => ({ ...s, tab, error: null })), []);
+  const setHeroQuery = useCallback((heroQuery: string) => setState(s => ({ ...s, heroQuery })), []);
+  const setPreviewPlatform = useCallback((previewPlatform: PlatformKey) => setState(s => ({ ...s, previewPlatform })), []);
+  const setSelectedContentId = useCallback((selectedContentId: number) => setState(s => ({ ...s, selectedContentId })), []);
+  const setMetricKey = useCallback((metricKey: MetricKey) => setState(s => ({ ...s, metricKey })), []);
+  const setWeekOffset = useCallback((weekOffset: number) => setState(s => ({ ...s, weekOffset, openChip: null })), []);
+  const setOpenChip = useCallback((openChip: number | null) => setState(s => ({ ...s, openChip })), []);
+  const closeChip = useCallback(() => setState(s => (s.openChip !== null ? { ...s, openChip: null } : s)), []);
+
+  const openComposer = useCallback((prefill = '') => setState(s => ({ ...s, composerOpen: true, composerPrefill: prefill })), []);
+  const closeComposer = useCallback(() => setState(s => ({ ...s, composerOpen: false, composerPrefill: '' })), []);
+
+  // Hero search → open the app + composer pre-filled with the typed text.
+  const goAppFromHero = useCallback(() => {
+    setState(s => ({
+      ...s,
+      view: 'app',
+      tab: 'approvals',
+      composerOpen: s.heroQuery.trim() ? true : s.composerOpen,
+      composerPrefill: s.heroQuery.trim(),
+    }));
   }, []);
+
+  // ─── Mutations (API call → refetch) ────────────────────────────────────────────
+
+  const approve = useCallback(async (id: number) => {
+    try { await api.approveContent(id); await loadApprovals(); flash('Approved — ready to schedule.'); }
+    catch (e) { fail(e, ''); }
+  }, [loadApprovals, flash, fail]);
+
+  const reject = useCallback(async (id: number) => {
+    try { await api.rejectContent(id); await loadApprovals(); flash('Rejected.'); }
+    catch (e) { fail(e, ''); }
+  }, [loadApprovals, flash, fail]);
+
+  const connectAccount = useCallback(async (account: Account, creds?: { handle: string; app_password: string }) => {
+    setState(s => ({ ...s, connectingId: account.id }));
+    try {
+      await api.connectAccount(account.platform, creds);
+      await loadAccounts();
+      flash(`${account.platform === 'bluesky' ? 'Bluesky connected — posts go out live.' : 'Connected (simulated).'}`);
+    } catch (e) { fail(e, ''); }
+    finally { setState(s => ({ ...s, connectingId: null })); }
+  }, [loadAccounts, flash, fail]);
+
+  const disconnectAccount = useCallback(async (account: Account) => {
+    setState(s => ({ ...s, connectingId: account.id }));
+    try { await api.disconnectAccount(account.id); await loadAccounts(); flash('Disconnected.'); }
+    catch (e) { fail(e, ''); }
+    finally { setState(s => ({ ...s, connectingId: null })); }
+  }, [loadAccounts, flash, fail]);
+
+  const publishNow = useCallback(async (sid: number) => {
+    try { await api.publishNow(sid); await loadCalendar(state.weekOffset); flash('Published now.'); }
+    catch (e) { fail(e, ''); }
+  }, [loadCalendar, state.weekOffset, flash, fail]);
+
+  const cancelSched = useCallback(async (sid: number) => {
+    try { await api.cancelSchedule(sid); await loadCalendar(state.weekOffset); flash('Schedule cancelled.'); }
+    catch (e) { fail(e, ''); }
+  }, [loadCalendar, state.weekOffset, flash, fail]);
+
+  const dropOnCell = useCallback(async (date: string, hour: number) => {
+    const item = dragRef.current;
+    dragRef.current = null;
+    if (!item) return;
+    const scheduled_time = cellToISO(date, hour);
+    try {
+      if (item.type === 'chip') {
+        await api.reschedulePost(item.id, scheduled_time);
+        await loadCalendar(state.weekOffset);
+        flash('Rescheduled to ' + hourLabel(hour) + '.');
+      } else {
+        const connected = state.accounts.filter(a => a.status === 'connected').map(a => a.id);
+        if (!connected.length) { flash('Connect an account first to schedule.'); return; }
+        await api.schedulePost({ content_id: item.id, account_ids: connected, scheduled_time });
+        await loadCalendar(state.weekOffset);
+        flash('Scheduled — appears on the calendar instantly.');
+      }
+    } catch (e) { fail(e, ''); }
+  }, [state.weekOffset, state.accounts, loadCalendar, flash, fail]);
+
+  // Called by the Composer after it has created/scheduled content via the API.
+  const onComposerSaved = useCallback(async (msg: string) => {
+    await loadApprovals();
+    flash(msg);
+  }, [loadApprovals, flash]);
 
   return {
     state,
@@ -206,15 +279,17 @@ export function useAppState() {
     setOpenChip,
     openComposer,
     closeComposer,
-    setComposerField,
+    goAppFromHero,
     flash,
+    retry,
     approve,
     reject,
-    toggleAccount,
+    connectAccount,
+    disconnectAccount,
     publishNow,
     cancelSched,
     dropOnCell,
-    saveComposer,
+    onComposerSaved,
     closeChip,
   };
 }
