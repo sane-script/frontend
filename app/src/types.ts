@@ -39,6 +39,7 @@ export interface Account {
   status: AccountStatus;
   connected_at: string | null;
   live: boolean;
+  is_demo?: boolean;
 }
 
 export interface ContentItem {

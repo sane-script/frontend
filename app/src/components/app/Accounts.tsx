@@ -1,20 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { type Account, PLATFORMS, ALL_PLATFORMS, type PlatformKey } from '@/types';
 import { PlatformIcon } from '@/components/icons/PlatformIcon';
 import { Spinner, ErrorBanner } from '@/components/app/States';
-import { DEMO_BLUESKY } from '@/config/demoCredentials';
 
 interface AccountsProps {
   accounts: Account[];
   loading: boolean;
   error: string | null;
   onConnect: (platform: PlatformKey, creds?: { handle: string; app_password: string }) => Promise<void>;
+  onConnectDemo: () => Promise<void>;
   onDisconnect: (account: Account) => void;
   onRemove: (id: number) => void;
   onRetry: () => void;
 }
 
-export function Accounts({ accounts, loading, error, onConnect, onDisconnect, onRemove, onRetry }: AccountsProps) {
+export function Accounts({ accounts, loading, error, onConnect, onConnectDemo, onDisconnect, onRemove, onRetry }: AccountsProps) {
   const [modal, setModal] = useState<PlatformKey | null>(null);
   const [connecting, setConnecting] = useState<PlatformKey | null>(null);
 
@@ -96,7 +96,7 @@ export function Accounts({ accounts, loading, error, onConnect, onDisconnect, on
       </div>
 
       {modal === 'bluesky' && (
-        <BlueskyModal onClose={() => setModal(null)} onConnect={creds => doConnect('bluesky', creds)} />
+        <BlueskyModal onClose={() => setModal(null)} onConnect={creds => doConnect('bluesky', creds)} onDemoConnect={async () => { setModal(null); setConnecting('bluesky'); try { await onConnectDemo(); } finally { setConnecting(null); } }} />
       )}
       {modal && modal !== 'bluesky' && (
         <SimulateModal platform={modal} onClose={() => setModal(null)} onConnect={() => doConnect(modal)} />
@@ -117,13 +117,13 @@ function ConnectingLabel() {
 
 // ── Bluesky modal: step-by-step + auto-suffix + demo autofill ────────────────
 
-function BlueskyModal({ onClose, onConnect }: {
+function BlueskyModal({ onClose, onConnect, onDemoConnect }: {
   onClose: () => void;
   onConnect: (creds: { handle: string; app_password: string }) => void;
+  onDemoConnect: () => Promise<void>;
 }) {
   const [handle, setHandle] = useState('');
   const [pw, setPw] = useState('');
-  const pwRef = useRef<HTMLInputElement>(null);
 
   // Auto-suffix: show the full handle the user is actually connecting as.
   const fullHandle = handle.trim() && !handle.includes('.')
@@ -131,10 +131,8 @@ function BlueskyModal({ onClose, onConnect }: {
     : handle.trim().replace(/^@/, '');
   const ok = fullHandle.length > 0 && pw.trim().length > 0;
 
-  function useSample() {
-    setHandle(DEMO_BLUESKY.handle);
-    if (DEMO_BLUESKY.appPassword) setPw(DEMO_BLUESKY.appPassword);
-    else setTimeout(() => pwRef.current?.focus(), 0);
+  function useDemo() {
+    onDemoConnect();
   }
 
   return (
@@ -150,7 +148,7 @@ function BlueskyModal({ onClose, onConnect }: {
         <li>Generate one at <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noreferrer" style={{ color: '#0085FF' }}>Settings → App Passwords</a>.</li>
       </ol>
 
-      <button onClick={useSample} style={{ width: '100%', border: '1px dashed rgba(0,0,0,.2)', background: '#fafafa', color: '#3f3f46', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>
+      <button onClick={useDemo} style={{ width: '100%', border: '1px dashed rgba(0,0,0,.2)', background: '#fafafa', color: '#3f3f46', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>
         ✨ Use the sample demo account
       </button>
 
@@ -164,7 +162,7 @@ function BlueskyModal({ onClose, onConnect }: {
             </div>
           )}
         </div>
-        <input ref={pwRef} type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="App password (xxxx-xxxx-xxxx-xxxx)"
+        <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="App password (xxxx-xxxx-xxxx-xxxx)"
           style={{ border: '1px solid rgba(0,0,0,.12)', borderRadius: 10, padding: '11px 13px', fontSize: 14, color: '#18181b' }} />
       </div>
 

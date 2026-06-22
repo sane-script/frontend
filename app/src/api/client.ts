@@ -93,10 +93,20 @@ export const mapContent = (c: ApiContent): ContentItem => ({
   created_at: c.created_at,
 });
 
-export const mapAccount = (a: ApiAccount): Account => ({
-  id: a.id, platform: a.platform, display_name: a.display_name, handle: a.handle,
-  status: a.status, connected_at: a.connected_at, live: a.platform === 'bluesky',
-});
+export const mapAccount = (a: ApiAccount): Account => {
+  let is_demo: boolean | undefined;
+  if (a.credentials_ref) {
+    try {
+      const ref = JSON.parse(a.credentials_ref);
+      if (ref.demo === true) is_demo = true;
+    } catch { /* ignore */ }
+  }
+  return {
+    id: a.id, platform: a.platform, display_name: a.display_name, handle: a.handle,
+    status: a.status, connected_at: a.connected_at, live: a.platform === 'bluesky',
+    is_demo,
+  };
+};
 
 // ─── Content ─────────────────────────────────────────────────────────────────────
 
@@ -143,6 +153,10 @@ export async function connectAccount(
   credentials?: { handle: string; app_password: string },
 ): Promise<Account> {
   return mapAccount(await request<ApiAccount>('POST', `/accounts/${platform}/connect`, credentials ?? {}));
+}
+
+export async function connectDemoBluesky(): Promise<Account> {
+  return mapAccount(await request<ApiAccount>('POST', '/accounts/bluesky/connect', { demo: true }));
 }
 
 export async function disconnectAccount(id: number): Promise<Account> {

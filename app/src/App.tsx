@@ -56,9 +56,11 @@ export default function App() {
     </div>
   );
 
+  const hasDemoAccount = state.accounts.some(a => a.is_demo && a.status === 'connected');
+
   const appView = (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#EDEEF5' }}>
-      <Sidebar tab={state.tab} onSetTab={app.setTab} onGoSite={() => app.setView('landing')} />
+      <Sidebar tab={state.tab} onSetTab={app.setTab} onGoSite={() => app.setView('landing')} hasDemoAccount={hasDemoAccount} />
       <main className="cd-scroll cd-main" style={{ flex: 1, minWidth: 0, height: '100vh', overflowY: 'auto' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px 34px 96px' }}>
 
@@ -103,6 +105,7 @@ export default function App() {
               loading={state.loading}
               error={state.error}
               onConnect={app.connectAccount}
+              onConnectDemo={app.connectDemoBluesky}
               onDisconnect={app.disconnectAccount}
               onRemove={app.removeAccount}
               onRetry={app.retry}

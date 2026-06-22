@@ -247,6 +247,17 @@ export function useAppState() {
     }
   }, [loadAccounts, flash]);
 
+  const connectDemoBluesky = useCallback(async () => {
+    try {
+      await api.connectDemoBluesky();
+      await loadAccounts();
+      flash('Bluesky demo account connected — posts go out live!');
+    } catch (e) {
+      flash('Error: ' + (e instanceof Error ? e.message : String(e)).slice(0, 90));
+      throw e;
+    }
+  }, [loadAccounts, flash]);
+
   const disconnectAccount = useCallback(async (account: Account) => {
     try { await api.disconnectAccount(account.id); await loadAccounts(); flash('Disconnected.'); }
     catch (e) { fail(e, ''); }
@@ -350,6 +361,7 @@ export function useAppState() {
     approve,
     reject,
     connectAccount,
+    connectDemoBluesky,
     disconnectAccount,
     removeAccount,
     publishNow,

@@ -4,6 +4,7 @@ interface SidebarProps {
   tab: TabKey;
   onSetTab: (tab: TabKey) => void;
   onGoSite: () => void;
+  hasDemoAccount?: boolean;
 }
 
 const NAV: { key: TabKey; label: string; icon: React.ReactNode }[] = [
@@ -77,7 +78,7 @@ const NAV: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-export function Sidebar({ tab, onSetTab, onGoSite }: SidebarProps) {
+export function Sidebar({ tab, onSetTab, onGoSite, hasDemoAccount }: SidebarProps) {
   return (
     <aside className="cd-sidebar" style={{
       width: 220,
@@ -136,6 +137,21 @@ export function Sidebar({ tab, onSetTab, onGoSite }: SidebarProps) {
       </nav>
 
       <div className="cd-sidebar-foot" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {hasDemoAccount && (
+          <a
+            href="https://bsky.app/profile/demoforwork.bsky.social"
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', border: '1px solid rgba(0,0,0,.1)', background: '#fff', cursor: 'pointer', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontWeight: 500, color: '#0085FF', textDecoration: 'none' }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            View demo on Bluesky
+          </a>
+        )}
         <button
           onClick={() => window.dispatchEvent(new Event('sane:replay'))}
           style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', border: '1px solid rgba(0,0,0,.1)', background: '#fff', cursor: 'pointer', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontWeight: 500, color: '#3f3f46' }}
