@@ -1,7 +1,8 @@
+import { useEffect } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { useAuth } from '@/auth/useAuth';
 import { AuthGate } from '@/auth/AuthGate';
-import { exportCsv, exportPdf } from '@/api/client';
+import { exportCsv, exportPdf, wakeBackend } from '@/api/client';
 import { Navbar } from '@/components/landing/Navbar';
 import { Hero } from '@/components/landing/Hero';
 import { HowItWorks } from '@/components/landing/HowItWorks';
@@ -21,6 +22,10 @@ export default function App() {
   const { isAuthed, authenticate } = useAuth();
   const app = useAppState();
   const { state } = app;
+
+  // Cold-start cover: wake the (possibly sleeping) backend on first mount,
+  // regardless of auth state, so it's warm by the first real API call.
+  useEffect(() => { wakeBackend(); }, []);
 
   if (!isAuthed) {
     return <AuthGate onAuth={authenticate} />;
