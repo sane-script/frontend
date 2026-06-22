@@ -1,58 +1,47 @@
-import { useState } from 'react';
-import { verifyKey, setStoredKey } from '@/api/client';
+import { useState, useEffect } from 'react';
+import { setStoredKey, wakeBackend } from '@/api/client';
+
+// The shared access key. Checked locally so the gate never blocks on a cold
+// backend — the server still validates X-App-Key on every real API route.
+const ACCESS_KEY = 'insanescript';
 
 interface AuthGateProps {
   onAuth: (key: string) => void;
 }
 
 export function AuthGate({ onAuth }: AuthGateProps) {
-  const [value, setValue] = useState('insanescript');
+  const [value, setValue] = useState(ACCESS_KEY);
   const [show, setShow] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
+  // Wake the (possibly sleeping) backend the moment the gate mounts, so it's
+  // warm by the time the user finishes reading and connects an account.
+  useEffect(() => { wakeBackend(); }, []);
+
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!value.trim() || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const ok = await verifyKey(value.trim());
-      if (ok) {
-        setStoredKey(value.trim());
-        onAuth(value.trim());
-      } else {
-        setError('Wrong key — try again.');
-      }
-    } catch {
-      // fetch threw → the server is unreachable, not a bad key
-      setError("Can't reach the server. Is the backend running on :8000?");
-    } finally {
-      setBusy(false);
+    const k = value.trim();
+    if (!k) return;
+    if (k !== ACCESS_KEY) {
+      setError('Wrong key — try again.');
+      return;
     }
+    wakeBackend();           // fire again on submit, just in case
+    setStoredKey(k);
+    onAuth(k);               // local accept — does NOT wait on the backend
   }
 
   return (
     <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: '#EDEEF5',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
+      position: 'fixed', inset: 0, background: '#EDEEF5',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }}>
       <form
         onSubmit={submit}
         style={{
-          background: '#fff',
-          border: '1px solid rgba(0,0,0,.06)',
-          borderRadius: 20,
-          padding: '38px 34px',
-          width: '100%',
-          maxWidth: 380,
-          boxShadow: '0 24px 60px rgba(0,0,0,.10)',
-          animation: 'cdRise .5s ease both',
+          background: '#fff', border: '1px solid rgba(0,0,0,.06)', borderRadius: 20,
+          padding: '38px 34px', width: '100%', maxWidth: 400,
+          boxShadow: '0 24px 60px rgba(0,0,0,.10)', animation: 'cdRise .5s ease both',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
@@ -67,8 +56,8 @@ export function AuthGate({ onAuth }: AuthGateProps) {
         <h1 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: 19, margin: '0 0 6px', color: '#18181b' }}>
           Enter access key to continue
         </h1>
-        <p style={{ color: '#71717a', fontSize: 13.5, margin: '0 0 22px', lineHeight: 1.5 }}>
-          This is a private workspace. Enter the shared access key to open the app.
+        <p style={{ color: '#71717a', fontSize: 13.5, margin: '0 0 18px', lineHeight: 1.5 }}>
+          This is a private workspace. The key is pre-filled — just click Unlock.
         </p>
 
         <div style={{ position: 'relative', marginBottom: error ? 8 : 16 }}>
@@ -81,32 +70,17 @@ export function AuthGate({ onAuth }: AuthGateProps) {
             style={{
               width: '100%',
               border: `1px solid ${error ? '#dc2626' : 'rgba(0,0,0,.14)'}`,
-              borderRadius: 11,
-              padding: '12px 44px 12px 14px',
-              fontSize: 14.5,
-              color: '#18181b',
+              borderRadius: 11, padding: '12px 44px 12px 14px', fontSize: 14.5, color: '#18181b',
             }}
           />
           <button
             type="button"
             onClick={() => setShow(s => !s)}
             aria-label={show ? 'Hide key' : 'Show key'}
-            title={show ? 'Hide key' : 'Show key'}
             style={{
-              position: 'absolute',
-              right: 6,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 32,
-              height: 32,
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: '#71717a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 0,
+              position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+              width: 32, height: 32, border: 'none', background: 'transparent', cursor: 'pointer',
+              color: '#71717a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
             }}
           >
             {show ? (
@@ -133,33 +107,24 @@ export function AuthGate({ onAuth }: AuthGateProps) {
 
         <button
           type="submit"
-          disabled={busy || !value.trim()}
           style={{
-            width: '100%',
-            border: 'none',
-            background: '#9fff00',
-            color: '#000',
-            borderRadius: 11,
-            padding: '13px 0',
-            fontSize: 14.5,
-            fontWeight: 600,
-            cursor: busy || !value.trim() ? 'default' : 'pointer',
-            opacity: busy || !value.trim() ? 0.55 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 9,
+            width: '100%', border: 'none', background: '#9fff00', color: '#000',
+            borderRadius: 11, padding: '13px 0', fontSize: 14.5, fontWeight: 600, cursor: 'pointer',
           }}
         >
-          {busy && (
-            <span style={{
-              width: 15, height: 15, borderRadius: '50%',
-              border: '2px solid rgba(0,0,0,.25)', borderTopColor: '#000',
-              animation: 'cdSpin .7s linear infinite', flex: 'none',
-            }} />
-          )}
-          {busy ? 'Checking…' : 'Unlock'}
+          Unlock
         </button>
+
+        {/* Honest heads-up — the client won't get this on the first try otherwise. */}
+        <div style={{
+          marginTop: 20, padding: '12px 14px', background: '#f4f4f5', borderRadius: 11,
+          fontSize: 12, color: '#52525b', lineHeight: 1.55,
+        }}>
+          <strong style={{ color: '#3f3f46' }}>Heads up:</strong> connecting Facebook, Instagram,
+          X and TikTok requires each platform's OAuth review, which is completed in production.
+          In this demo, <strong style={{ color: '#3f6212' }}>Bluesky is fully live</strong>; the
+          others run in simulation. <span style={{ fontStyle: 'italic' }}>— Sanecrit</span>
+        </div>
       </form>
     </div>
   );

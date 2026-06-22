@@ -39,6 +39,20 @@ export async function verifyKey(key: string): Promise<boolean> {
   return res.ok;
 }
 
+// Fire-and-forget wake-up ping. The backend sleeps when idle on free hosting;
+// hitting /health (public, no key) on first load warms it while the user reads
+// the guide intro, so the first real API call isn't stuck on a cold start.
+// /health lives at the server root, so strip the trailing /api from BASE.
+export function wakeBackend(): void {
+  const root = BASE.replace(/\/api\/?$/, '');
+  const url = `${root}/health`;
+  try {
+    fetch(url, { method: 'GET' }).catch(() => {});
+  } catch {
+    /* ignore — purely opportunistic */
+  }
+}
+
 // ─── Raw backend shapes ─────────────────────────────────────────────────────────
 
 interface ApiContent {
@@ -98,6 +112,17 @@ export async function createContent(data: {
   return mapContent(await request<ApiContent>('POST', '/content', data));
 }
 
+export async function updateContent(id: number, data: {
+  title?: string; body?: string; hashtags?: string[];
+  link?: string | null; media_url?: string | null;
+}): Promise<ContentItem> {
+  return mapContent(await request<ApiContent>('PATCH', `/content/${id}`, data));
+}
+
+export async function deleteContent(id: number): Promise<void> {
+  await request('DELETE', `/content/${id}`);
+}
+
 export async function approveContent(id: number): Promise<ContentItem> {
   return mapContent(await request<ApiContent>('POST', `/content/${id}/approve`));
 }
@@ -124,6 +149,10 @@ export async function disconnectAccount(id: number): Promise<Account> {
   return mapAccount(await request<ApiAccount>('POST', `/accounts/${id}/disconnect`));
 }
 
+export async function deleteAccount(id: number): Promise<void> {
+  await request('DELETE', `/accounts/${id}`);
+}
+
 // ─── Scheduling ─────────────────────────────────────────────────────────────────
 
 export async function schedulePost(data: {
@@ -146,6 +175,13 @@ export async function cancelSchedule(id: number): Promise<void> {
 
 export async function publishNow(id: number): Promise<ApiScheduledPost> {
   return request<ApiScheduledPost>('POST', `/schedule/${id}/publish-now`);
+}
+
+// Combined create-and-publish-now for N accounts in one synchronous backend call.
+// Avoids the APScheduler race that produced spurious "internal server error"
+// toasts. Each returned row carries its own final status + platform_post_url.
+export async function publishNowBatch(content_id: number, account_ids: number[]): Promise<ApiScheduledPost[]> {
+  return request<ApiScheduledPost[]>('POST', '/schedule/publish-now', { content_id, account_ids });
 }
 
 // ─── Metrics ────────────────────────────────────────────────────────────────────

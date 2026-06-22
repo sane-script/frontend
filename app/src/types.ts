@@ -74,13 +74,14 @@ export interface MetricRow {
 
 export type MetricKey = 'reach' | 'engagement' | 'followers' | 'clicks';
 
-export type TabKey = 'create' | 'calendar' | 'analytics' | 'accounts' | 'review';
+export type TabKey = 'create' | 'calendar' | 'analytics' | 'accounts' | 'drafts' | 'review';
 
 export interface AppState {
   view: 'landing' | 'app';
   tab: TabKey;
   heroQuery: string;
   createPrefill: string;
+  editDraft: ContentItem | null;
   toast: string | null;
   accounts: Account[];
   content: ContentItem[];

@@ -9,6 +9,7 @@ const initialState: AppState = {
   tab: 'create',
   heroQuery: '',
   createPrefill: '',
+  editDraft: null,
   toast: null,
   accounts: [],
   content: [],
@@ -118,6 +119,14 @@ export function useAppState() {
     } catch (e) { fail(e, 'Could not load content.'); }
   }, [fail]);
 
+  const loadDrafts = useCallback(async () => {
+    setState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const [content, accounts] = await Promise.all([api.getContent(), api.getAccounts()]);
+      setState(s => ({ ...s, content, accounts, loading: false }));
+    } catch (e) { fail(e, 'Could not load drafts.'); }
+  }, [fail]);
+
   const loadCalendar = useCallback(async (weekOffset: number) => {
     setState(s => ({ ...s, loading: true, error: null }));
     try {
@@ -166,6 +175,7 @@ export function useAppState() {
     if (state.view !== 'app') return;
     if (state.tab === 'create')    loadCreate();
     else if (state.tab === 'accounts') loadAccounts();
+    else if (state.tab === 'drafts')   loadDrafts();
     else if (state.tab === 'review')   loadReview();
     else if (state.tab === 'calendar') loadCalendar(state.weekOffset);
     else if (state.tab === 'analytics') loadAnalytics();
@@ -175,10 +185,11 @@ export function useAppState() {
   const retry = useCallback(() => {
     if (state.tab === 'create')    loadCreate();
     else if (state.tab === 'accounts') loadAccounts();
+    else if (state.tab === 'drafts')   loadDrafts();
     else if (state.tab === 'review')   loadReview();
     else if (state.tab === 'calendar') loadCalendar(state.weekOffset);
     else if (state.tab === 'analytics') loadAnalytics();
-  }, [state.tab, state.weekOffset, loadCreate, loadAccounts, loadReview, loadCalendar, loadAnalytics]);
+  }, [state.tab, state.weekOffset, loadCreate, loadAccounts, loadDrafts, loadReview, loadCalendar, loadAnalytics]);
 
   // ─── View / UI setters ─────────────────────────────────────────────────────
 
@@ -198,7 +209,17 @@ export function useAppState() {
       view: 'app',
       tab: 'create',
       createPrefill: s.heroQuery.trim(),
+      editDraft: null,
     }));
+  }, []);
+
+  // Open the Create tab pre-loaded with an existing draft for editing.
+  const editContent = useCallback((item: AppState['editDraft']) => {
+    setState(s => ({ ...s, tab: 'create', editDraft: item, createPrefill: '' }));
+  }, []);
+
+  const clearEditDraft = useCallback(() => {
+    setState(s => (s.editDraft ? { ...s, editDraft: null } : s));
   }, []);
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
@@ -265,6 +286,47 @@ export function useAppState() {
     flash(msg);
   }, [loadCreate, flash]);
 
+  // ─── Drafts CRUD ────────────────────────────────────────────────────────────
+
+  const deleteContent = useCallback(async (id: number) => {
+    try { await api.deleteContent(id); await loadDrafts(); flash('Deleted.'); }
+    catch (e) { fail(e, ''); }
+  }, [loadDrafts, flash, fail]);
+
+  const duplicateContent = useCallback(async (item: { title: string; body: string; hashtags: string[]; link: string; media_url: string }) => {
+    try {
+      await api.createContent({
+        title: item.title + ' (copy)', body: item.body, hashtags: item.hashtags,
+        link: item.link || null, media_url: item.media_url || null, status: 'pending_approval',
+      });
+      await loadDrafts();
+      flash('Duplicated.');
+    } catch (e) { fail(e, ''); }
+  }, [loadDrafts, flash, fail]);
+
+  const scheduleContent = useCallback(async (contentId: number, scheduled_time: string) => {
+    try {
+      const connected = state.accounts.filter(a => a.status === 'connected').map(a => a.id);
+      if (!connected.length) { flash('Connect an account first to schedule.'); return; }
+      // Drafts arrive as pending_approval; approve so the schedule endpoint accepts it.
+      await api.approveContent(contentId).catch(() => undefined);
+      await api.schedulePost({ content_id: contentId, account_ids: connected, scheduled_time });
+      await loadDrafts();
+      flash('Scheduled — see it on the Calendar.');
+    } catch (e) { fail(e, ''); }
+  }, [state.accounts, loadDrafts, flash, fail]);
+
+  const publishContentNow = useCallback(async (contentId: number) => {
+    try {
+      const connected = state.accounts.filter(a => a.status === 'connected').map(a => a.id);
+      if (!connected.length) { flash('Connect an account first to publish.'); return; }
+      const rows = await api.publishNowBatch(contentId, connected);
+      const liveUrl = rows.find(r => r.platform_post_url)?.platform_post_url ?? null;
+      await loadDrafts();
+      flash(liveUrl ? `Posted live! ${liveUrl}` : 'Posted to all connected networks.');
+    } catch (e) { fail(e, ''); }
+  }, [state.accounts, loadDrafts, flash, fail]);
+
   return {
     state,
     dragRef,
@@ -288,5 +350,11 @@ export function useAppState() {
     dropOnCell,
     onContentSaved,
     closeChip,
+    editContent,
+    clearEditDraft,
+    deleteContent,
+    duplicateContent,
+    scheduleContent,
+    publishContentNow,
   };
 }
