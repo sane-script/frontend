@@ -17,6 +17,16 @@ const NAV: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    key: 'drafts',
+    label: 'Drafts',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    ),
+  },
+  {
     key: 'calendar',
     label: 'Calendar',
     icon: (
@@ -69,7 +79,7 @@ const NAV: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 
 export function Sidebar({ tab, onSetTab, onGoSite }: SidebarProps) {
   return (
-    <aside style={{
+    <aside className="cd-sidebar" style={{
       width: 220,
       flex: 'none',
       background: '#fff',
@@ -81,7 +91,7 @@ export function Sidebar({ tab, onSetTab, onGoSite }: SidebarProps) {
       top: 0,
       height: '100vh',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 8px 22px' }}>
+      <div className="cd-sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 8px 22px' }}>
         <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
           <path fill="#1a1a1a" d="M12 2c1.6 2.2 3.4 3.2 6 3 -.2 2.6 .8 4.4 3 6 -2.2 1.6-3.2 3.4-3 6 -2.6-.2-4.4 .8-6 3 -1.6-2.2-3.4-3.2-6-3 .2-2.6-.8-4.4-3-6 2.2-1.6 3.2-3.4 3-6 2.6 .2 4.4-.8 6-3Z" />
         </svg>
@@ -90,12 +100,13 @@ export function Sidebar({ tab, onSetTab, onGoSite }: SidebarProps) {
         </span>
       </div>
 
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <nav className="cd-nav" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {NAV.map(({ key, label, icon }) => {
           const active = tab === key;
           return (
             <button
               key={key}
+              data-guide={`tab-${key}`}
               onClick={() => onSetTab(key)}
               style={{
                 display: 'flex',
@@ -117,14 +128,24 @@ export function Sidebar({ tab, onSetTab, onGoSite }: SidebarProps) {
               <span style={{ color: active ? '#18181b' : '#a1a1aa', flex: 'none', display: 'flex' }}>{icon}</span>
               <span>{label}</span>
               {active && (
-                <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#9fff00', flex: 'none' }} />
+                <span className="cd-navdot" style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#9fff00', flex: 'none' }} />
               )}
             </button>
           );
         })}
       </nav>
 
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="cd-sidebar-foot" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button
+          onClick={() => window.dispatchEvent(new Event('sane:replay'))}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', border: '1px solid rgba(0,0,0,.1)', background: '#fff', cursor: 'pointer', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontWeight: 500, color: '#3f3f46' }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+          </svg>
+          Replay demo guide
+        </button>
         <div style={{
           display: 'flex',
           alignItems: 'center',
